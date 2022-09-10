@@ -10,6 +10,9 @@ class ExitField(mesa.Agent):
 
     def getType(self):
         return self.type
+    
+    def getGuide(self):
+        return None
 
     def step(self):
         pass

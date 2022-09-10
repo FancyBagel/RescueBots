@@ -17,6 +17,7 @@ class RescueModel(mesa.Model):
                  assets: Array,
                  people: Array,
                  exitFields: Array,
+                 robotType=DirectRobot,
                  returnQueue: Queue=None) -> None:
         self.current_id = 0
         self.timeLimit = T
@@ -60,7 +61,7 @@ class RescueModel(mesa.Model):
             self.grid.place_agent(exitAgent, exitField["pos"])
         
         for _ in range(R):
-            robotAgent = DirectRobot(self.next_id(), self)
+            robotAgent = robotType(self.next_id(), self)
             self.schedule.add(robotAgent)
             self.robots.add(robotAgent)
             #Robot sam wybiera, gdzie startuje symulację
@@ -68,25 +69,25 @@ class RescueModel(mesa.Model):
         
         self.running = True
     
-    def meet(self, human:HumanAgent):
-        self.met.add(human)
+    def meet(self, agent):
+        self.met.add(agent)
     
-    def unmeet(self, human:HumanAgent):
-        self.met.discard(human)
+    def unmeet(self, agent):
+        self.met.discard(agent)
 
-    #isMet - czy dany człowiek jest już eskortowany
-    def isMet(self, human:HumanAgent):
-        return human in self.met
+    #isMet - czy dany agent jest już eskortowany
+    def isMet(self, agent):
+        return agent in self.met
 
-    def mark(self, human:HumanAgent):
-        self.marked.add(human)
+    def mark(self, agent):
+        self.marked.add(agent)
     
-    def unmark(self, human:HumanAgent):
-        self.marked.discard(human)
+    def unmark(self, agent):
+        self.marked.discard(agent)
 
     #isMarked - czy dany człowiek jest oznaczony do uratowania
-    def isMarked(self, human:HumanAgent):
-        return human in self.marked
+    def isMarked(self, agent):
+        return agent in self.marked
     
     def timeLeft(self):
         return self.timeLimit - self.schedule.time

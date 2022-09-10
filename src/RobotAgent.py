@@ -83,7 +83,7 @@ class TestRobot(RobotAgent):
         self.nextPos = (x, y)
 
 
-# "Naiwny" robot, idzie w strone najbliższego człowieka, który nie jest
+# "Bezpośredni" robot, idzie w strone najbliższego człowieka, który nie jest
 # jeszcze oznaczony przez innego robota do uratowania. Jeśli brak ludzi
 # nieoznaczonych do uratowania, idzie do najbliższego wyjścia.
 # Ignoruje nieprzytomnych i przedmioty wartościowe.
@@ -126,6 +126,88 @@ class DirectRobot(RobotAgent):
         self.model.unmark(self.pickedTarget)
         self.pickedTarget = None
 
+        minDist = inf
+        for human in self.model.humans:
+            if (self.model.isMarked(human) or not human.isConscious or
+                    self.model.isMet(human) or human.exiting):
+                continue
+
+            dist = distSquared(human, self)
+            if minDist > dist:
+                minDist = dist
+                self.pickedTarget = human
+
+        if self.pickedTarget != None:
+            self.model.mark(self.pickedTarget)
+            return
+
+        for exit in self.model.exitFields:
+            dist = distSquared(exit, self)
+            if minDist > dist:
+                minDist = dist
+                self.pickedTarget = exit
+
+    def step(self):
+        self.pickTarget()  # Wybór celu
+
+        # Jeśli na którymś z sąsiadujących pól jest nieeskortowany człowiek,
+        # robot zatrzymuje się na jedną turę i daje człowiekowi szansę na
+        # podejście
+        for thing in self.model.grid.get_neighbors(self.pos, True):
+            if (thing.getType() == AgentType.Human and
+                    not self.model.isMet(thing)):
+                self.waiting = 1
+                break
+
+        # Robot wyznacza kierunek, który najbardziej zbliża go do celu
+        (dx, dy) = minDistDir(self.pos, self.pickedTarget.pos)
+        (x, y) = self.pos
+        # Jeśli nie czeka, robot planuje ruch na następną turę
+        self.nextPos = (x + dx, y + dy) if not self.waiting else self.pos
+
+        # Robot kończy czekanie od następnej tury
+        self.waiting = 0
+
+    def advance(self):
+        super().advance()
+        #self.model.unmark(self.pickedTarget)
+        #self.pickedTarget = None
+
+# "Naiwny" robot, w każdej turze od nowa wybiera najbliższego człowieka, który nie jest
+# jeszcze oznaczony przez innego robota do uratowania. Jeśli brak ludzi
+# nieoznaczonych do uratowania, idzie do najbliższego wyjścia.
+# Ignoruje nieprzytomnych i przedmioty wartościowe.
+# Startuje z pola najbliższego do jeszcze nie oznaczonego człowieka
+class NaiveRobot(RobotAgent):
+    def __init__(self, unique_id: int, model: mesa.Model) -> None:
+        super().__init__(unique_id, model)
+        self.pickedTarget = None
+        self.waiting = False
+        minDist = inf
+        closestExit = None
+        closestHuman = None
+
+        for exit in self.model.exitFields:
+            for human in self.model.humans:
+                if self.model.isMarked(human) or not human.isConscious:
+                    continue
+                dist = distSquared(exit, human)
+                if minDist > dist:
+                    minDist = dist
+                    closestExit = exit
+                    closestHuman = human
+
+        # Każdy człowiek ma robota idącego w jego stronę - startuje gdziekolwiek
+        if closestHuman == None:
+            closestExit = self.model.random.choice(self.model.exitFields)
+        # Oznacza wybranego człowieka, startuje z najbliższego pola wyjściowego
+        else:
+            self.model.mark(closestHuman)
+        self.model.grid.place_agent(self, closestExit.pos)
+
+    #Spośród przytomnych, nieoznaczonych i nieeskortowanych ludzi robot
+    #wybiera najbliższego. Jeśli takiego nie ma, wybiera najbliższe wyjście
+    def pickTarget(self):
         minDist = inf
         for human in self.model.humans:
             if (self.model.isMarked(human) or not human.isConscious or
